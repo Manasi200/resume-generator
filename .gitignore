@@ -1,0 +1,13 @@
+# .gitignore
+
+# Node modules directory
+node_modules/
+
+# Environment variables
+.env
+
+# Uploaded files
+uploads/
+
+# Vercel deployment configurations (if using Vercel)
+.vercel/
