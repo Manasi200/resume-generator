@@ -1,0 +1,58 @@
+require('dotenv').config();
+const express = require('express');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
+const { OpenAI } = require('openai');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Configure storage for uploaded files
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    },
+});
+
+const upload = multer({ storage: storage });
+
+// Load OpenAI API key from environment variables
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Serve static files
+app.use(express.static('public'));
+
+// Handle PDF upload and processing
+app.post('/upload', upload.single('pdf'), async (req, res) => {
+    try {
+        const pdfPath = path.join(__dirname, '../uploads/', req.file.filename);
+        const pdfBuffer = fs.readFileSync(pdfPath);
+        const pdfData = await pdfParse(pdfBuffer);
+
+        // Call OpenAI API to generate HTML resume
+        const response = await openai.createCompletion({
+            model: 'text-davinci-003',
+            prompt: `Convert the following text to a professional HTML resume:\n\n${pdfData.text}`,
+            max_tokens: 1500,
+        });
+
+        const htmlResume = response.choices[0].text.trim();
+
+        // Respond with the HTML resume
+        res.setHeader('Content-Type', 'text/html');
+        res.send(htmlResume);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error processing PDF');
+    }
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+});
